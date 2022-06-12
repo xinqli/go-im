@@ -86,6 +86,29 @@ func (this *User) DoMessage(msg string) {
 		this.SendMsg("您已经更新用户名为：" + this.Name + "\n")
 		return
 	}
+	if len(msg) > 4 && msg[:3] == "to|" {
+		// 消息结构: to|张三|content
+		// 1获取对方用户名
+		remoteName := strings.Split(msg, "|")[1]
+		if remoteName == "" {
+			this.SendMsg("消息格式不正确，请使用 消息结构: to|张三|content\n")
+			return
+		}
+		// 2拿到user对象
+		remoteUser, ok := this.server.OnlineMap[remoteName]
+		if !ok {
+			this.SendMsg("用户不存在\n")
+			return
+		}
+		// 3获取消息内容 发送消息
+		content := strings.Split(msg, "|")[2]
+		if content == "" {
+			this.SendMsg("无消息内容\n")
+			return
+		}
+		remoteUser.SendMsg(this.Name + "发来消息：" + content + "\n")
+		return
+	}
 
 	this.server.BroadCast(this, msg)
 }
