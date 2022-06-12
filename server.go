@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 )
 
 type Server struct {
@@ -30,12 +31,12 @@ func NewServer(ip string, port int) *Server {
 }
 
 func (this *Server) handler(conn net.Conn) {
+	isLive := make(chan bool)
 	// 当前连接的业务
 	fmt.Println("连接创建成功")
 	// 用户上线，将用户加入map中
 	user := NewUser(conn, this)
 	user.OnLine()
-
 	// 接收客户端发送的消息
 	go func() {
 		buf := make([]byte, 4096)
@@ -55,11 +56,30 @@ func (this *Server) handler(conn net.Conn) {
 			msg := string(buf[:n-1])
 			// 将msg广播
 			user.DoMessage(msg)
+
+			// 用户任意消息，代表活跃
+			isLive <- true
 		}
 	}()
 
-	// 当前阻塞
-	select {}
+	for {
+		// 当前阻塞
+		select {
+		case <-isLive:
+			// 当前用户活跃，重制定时器
+			// 不做任何事情，为了激活select 更新下面的定时器
+
+		case <-time.After(time.Second * 10):
+			// 已经超时了
+			// 将当前User强制关闭
+			user.SendMsg("你被踢了")
+			// 销毁资源
+			close(user.C)
+			conn.Close()
+			return
+		}
+
+	}
 }
 
 // 监听message广播消息channel，一旦有消息就发给全部在线user
